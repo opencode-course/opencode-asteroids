@@ -46,6 +46,16 @@ const SHIP_SKINS = [
     vertices: [[19, 0], [3, -6], [-3, -12], [-11, -8], [-8, 0], [-11, 8], [-3, 12], [3, 6]],
     lineWidth: 1.7,
   },
+  {
+    name: 'MORADA X2',
+    stroke: '#c084fc',
+    flame: 'rgba(224, 130, 255, 0.9)',
+    flameLength: [6, 14],
+    vertices: [[20, 0], [-12, -9], [-7, 0], [-12, 9]],
+    scale: 2,
+    scoreMultiplier: 2,
+    glow: true,
+  },
 ];
 
 function loadShipSkinIndex() {
@@ -293,13 +303,16 @@ class PowerUp {
 class Ship {
   constructor() { this.reset(); }
 
+  get radius() {
+    return 12 * (SHIP_SKINS[shipSkinIndex].scale || 1);
+  }
+
   reset() {
     this.x      = W / 2;
     this.y      = H / 2;
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -339,7 +352,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = 21 * (SHIP_SKINS[shipSkinIndex].scale || 1);
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.tripleShot > 0) {
@@ -353,8 +366,10 @@ class Ship {
     if (this.dead) return;
 
     const skin = SHIP_SKINS[shipSkinIndex];
+    const scale = skin.scale || 1;
     ctx.save();
     ctx.translate(this.x, this.y);
+    ctx.scale(scale, scale);
 
     if (this.shield > 0) {
       const isBlinking = this.shield < 1 && Math.floor(this.shield * 8) % 2 === 0;
@@ -554,13 +569,14 @@ function update(dt) {
   powerUps = powerUps.filter(powerUp => !powerUp.dead);
 
   // Bala vs asteroide
+  const scoreMultiplier = SHIP_SKINS[shipSkinIndex].scoreMultiplier || 1;
   const newAsteroids = [];
   for (const b of bullets) {
     for (const a of asteroids) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += a.points;
+        score += a.points * scoreMultiplier;
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         if (!(a instanceof ShootingStar) && Math.random() < POWER_UP_DROP_CHANCE) {
@@ -679,6 +695,13 @@ function drawHUD() {
 
   ctx.textAlign = 'left';
   ctx.fillText(`SCORE  ${score}`, 14, 26);
+
+  const skin = SHIP_SKINS[shipSkinIndex];
+  if ((skin.scoreMultiplier || 1) > 1) {
+    ctx.fillStyle = skin.stroke;
+    ctx.fillText('X2', 14 + ctx.measureText(`SCORE  ${score}`).width + 8, 26);
+    ctx.fillStyle = '#fff';
+  }
 
   ctx.textAlign = 'center';
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);
