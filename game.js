@@ -697,26 +697,6 @@ function drawHUD() {
     drawPowerBar('TRIPLE', ship.tripleShot, TRIPLE_SHOT_DURATION, '#ff9f1c', 46 + powerBarIndex * 16);
 }
 
-function drawPowerBar(label, remaining, duration, color, y) {
-  const barX = 105;
-  const barY = y - 8;
-  const barWidth = 100;
-  const barHeight = 7;
-  const isBlinking = remaining < 1 && Math.floor(remaining * 8) % 2 === 0;
-
-  ctx.textAlign = 'left';
-  ctx.fillStyle = color;
-  ctx.font = '11px monospace';
-  ctx.fillText(label, 14, y);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(barX, barY, barWidth, barHeight);
-  ctx.fillStyle = isBlinking ? '#fff' : color;
-  ctx.fillRect(barX + 1, barY + 1, (barWidth - 2) * (remaining / duration), barHeight - 2);
-  ctx.fillStyle = color;
-  ctx.fillText(`${remaining.toFixed(1)}s`, barX + barWidth + 7, y);
-}
-
 function drawOverlay(title, sub) {
   ctx.textAlign   = 'center';
   ctx.fillStyle   = '#fff';
