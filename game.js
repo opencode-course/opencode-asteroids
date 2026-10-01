@@ -6,6 +6,7 @@ const W = 800;
 const H = 600;
 const SPEED_BOOST_DURATION = 5;
 const SHIELD_DURATION = 5;
+const TRIPLE_SHOT_DURATION = 5;
 const POWER_UP_DROP_CHANCE = 0.12;
 const POWER_UP_LIFETIME = 10;
 const SHOOTING_STAR_SPEED = 320;
@@ -207,7 +208,8 @@ class PowerUp {
 
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.strokeStyle = this.type === 'shield' ? '#7cff4f' : '#00e5ff';
+    const colors = { speed: '#00e5ff', shield: '#7cff4f', triple: '#ff9f1c' };
+    ctx.strokeStyle = colors[this.type];
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -219,6 +221,13 @@ class PowerUp {
       ctx.lineTo(-5, 3);
       ctx.lineTo(-6, -4);
       ctx.closePath();
+    } else if (this.type === 'triple') {
+      ctx.moveTo(-6, -4);
+      ctx.lineTo(6, -4);
+      ctx.moveTo(-6, 0);
+      ctx.lineTo(6, 0);
+      ctx.moveTo(-6, 4);
+      ctx.lineTo(6, 4);
     } else {
       ctx.moveTo(2, -7);
       ctx.lineTo(-4, 1);
@@ -248,6 +257,7 @@ class Ship {
     this.shootCooldown = 0;
     this.speedBoost    = 0;
     this.shield        = 0;
+    this.tripleShot    = 0;
     this.dead          = false;
   }
 
@@ -257,6 +267,7 @@ class Ship {
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoost    > 0) this.speedBoost = Math.max(0, this.speedBoost - dt);
     if (this.shield        > 0) this.shield = Math.max(0, this.shield - dt);
+    if (this.tripleShot    > 0) this.tripleShot = Math.max(0, this.tripleShot - dt);
 
     const ROT   = 3.5;   // rad/s
     const THRUST = 260 * (this.speedBoost > 0 ? 2 : 1);  // px/s²
@@ -283,6 +294,13 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
+    if (this.tripleShot > 0) {
+      return [0, 8, 16].map(offset => new Bullet(
+        ox + Math.cos(this.angle) * offset,
+        oy + Math.sin(this.angle) * offset,
+        this.angle,
+      ));
+    }
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -428,6 +446,7 @@ function killShip() {
   ship.dead = true;
   ship.speedBoost = 0;
   ship.shield = 0;
+  ship.tripleShot = 0;
   lives--;
   if (lives <= 0) {
     state = 'gameover';
@@ -487,7 +506,8 @@ function update(dt) {
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         if (!(a instanceof ShootingStar) && Math.random() < POWER_UP_DROP_CHANCE) {
-          const type = Math.random() < 0.5 ? 'speed' : 'shield';
+          const types = ['speed', 'shield', 'triple'];
+          const type = types[Math.floor(Math.random() * types.length)];
           powerUps.push(new PowerUp(a.x, a.y, type));
         }
       }
@@ -517,6 +537,8 @@ function update(dt) {
         powerUp.dead = true;
         if (powerUp.type === 'shield') {
           ship.shield = SHIELD_DURATION;
+        } else if (powerUp.type === 'triple') {
+          ship.tripleShot = TRIPLE_SHOT_DURATION;
         } else {
           ship.speedBoost = SPEED_BOOST_DURATION;
         }
@@ -573,6 +595,25 @@ function drawLifeIcon(x, y) {
   ctx.restore();
 }
 
+function drawPowerBar(label, value, duration, color, y) {
+  const barX = 105;
+  const barWidth = 100;
+  const barHeight = 7;
+  const isBlinking = value < 1 && Math.floor(value * 8) % 2 === 0;
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = color;
+  ctx.font = '11px monospace';
+  ctx.fillText(label, 14, y + 8);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, y, barWidth, barHeight);
+  ctx.fillStyle = isBlinking ? '#fff' : color;
+  ctx.fillRect(barX + 1, y + 1, (barWidth - 2) * (value / duration), barHeight - 2);
+  ctx.fillStyle = color;
+  ctx.fillText(`${value.toFixed(1)}s`, barX + barWidth + 7, y + 8);
+}
+
 function drawHUD() {
   ctx.fillStyle = '#fff';
   ctx.font = '15px monospace';
@@ -590,8 +631,9 @@ function drawHUD() {
   if (ship.speedBoost > 0)
     drawPowerBar('VELOCIDAD', ship.speedBoost, SPEED_BOOST_DURATION, '#00e5ff', 46 + powerBarIndex++ * 16);
   if (ship.shield > 0)
-    drawPowerBar('ESCUDO', ship.shield, SHIELD_DURATION, '#7cff4f', 46 + powerBarIndex * 16);
-
+    drawPowerBar('ESCUDO', ship.shield, SHIELD_DURATION, '#7cff4f', 46 + powerBarIndex++ * 16);
+  if (ship.tripleShot > 0)
+    drawPowerBar('TRIPLE', ship.tripleShot, TRIPLE_SHOT_DURATION, '#ff9f1c', 46 + powerBarIndex * 16);
 }
 
 function drawPowerBar(label, remaining, duration, color, y) {
