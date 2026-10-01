@@ -7,6 +7,7 @@ const H = 600;
 const SPEED_BOOST_DURATION = 5;
 const SHIELD_DURATION = 5;
 const TRIPLE_SHOT_DURATION = 5;
+const TRIPLE_SHOT_SPREAD = Math.PI / 12;
 const POWER_UP_DROP_CHANCE = 0.12;
 const POWER_UP_LIFETIME = 10;
 const SHOOTING_STAR_SPEED = 320;
@@ -342,11 +343,8 @@ class Ship {
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.tripleShot > 0) {
-      return [0, 8, 16].map(offset => new Bullet(
-        ox + Math.cos(this.angle) * offset,
-        oy + Math.sin(this.angle) * offset,
-        this.angle,
-      ));
+      return [-TRIPLE_SHOT_SPREAD, 0, TRIPLE_SHOT_SPREAD]
+        .map(angleOffset => new Bullet(ox, oy, this.angle + angleOffset));
     }
     return [new Bullet(ox, oy, this.angle)];
   }
