@@ -26,5 +26,5 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: glm-5.3
+          model: opencode-go/glm-5.3
           # share: tru
