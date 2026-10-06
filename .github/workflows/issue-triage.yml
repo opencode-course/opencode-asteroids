@@ -1,0 +1,128 @@
+name: Issue triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    if: github.actor != 'opencode-agent[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Format issue and add triage label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+
+            if (!issue || issue.pull_request) {
+              core.info('Skipping pull request or missing issue.');
+              return;
+            }
+
+            const content = `${issue.title}\n${issue.body || ''}`.toLowerCase();
+            const categories = [
+              {
+                name: 'bug',
+                color: 'd73a4a',
+                description: 'Problema o comportamiento inesperado',
+                keywords: ['bug', 'error', 'falla', 'fallo', 'roto', 'crash', 'no funciona', 'broken', 'not working'],
+              },
+              {
+                name: 'enhancement',
+                color: 'a2eeef',
+                description: 'Mejora o funcionalidad nueva',
+                keywords: ['feature', 'agregar', 'añadir', 'mejora', 'mejorar', 'nueva función', 'new feature', 'should'],
+              },
+              {
+                name: 'documentation',
+                color: '0075ca',
+                description: 'Cambio relacionado con documentación',
+                keywords: ['documentation', 'documentación', 'readme', 'docs'],
+              },
+              {
+                name: 'question',
+                color: 'd876e3',
+                description: 'Pregunta o solicitud de ayuda',
+                keywords: ['pregunta', 'duda', 'cómo', 'como', 'question', 'how do i', 'how can i'],
+              },
+            ];
+
+            const category = categories.find(({ keywords }) =>
+              keywords.some((keyword) => content.includes(keyword))
+            );
+            const label = category || {
+              name: 'needs-triage',
+              color: 'ededed',
+              description: 'Issue pendiente de clasificación',
+            };
+
+            try {
+              await github.rest.issues.createLabel({
+                owner,
+                repo,
+                name: label.name,
+                color: label.color,
+                description: label.description,
+              });
+            } catch (error) {
+              if (error.status !== 422) throw error;
+            }
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: issue.number,
+              labels: [label.name],
+            });
+
+            const originalBody = issue.body || '';
+            const longestBacktickRun = Math.max(
+              0,
+              ...Array.from(originalBody.matchAll(/`+/g), ([run]) => run.length)
+            );
+            const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1));
+            const formattedBody = [
+              `## Resumen del issue #${issue.number}`,
+              '',
+              `- **Autor:** @${issue.user.login}`,
+              `- **Creado:** ${issue.created_at}`,
+              `- **Clasificación sugerida:** \`${label.name}\``,
+              '',
+              '## Descripción original (sin modificar)',
+              '',
+              fence,
+              originalBody,
+              fence,
+              '',
+              '## Contexto del proyecto',
+              '',
+              '- Juego estático hecho con HTML5 Canvas y JavaScript, sin dependencias ni proceso de build.',
+              '- Se puede abrir `index.html` directamente o ejecutar `npx serve .`.',
+              '- El canvas mide 800×600; las dimensiones del mundo (`W` y `H`) están en `game.js`.',
+              '- `game.js` es la fuente de verdad para el comportamiento actual del juego.',
+              '',
+              '## Checklist de revisión',
+              '',
+              '- [ ] Confirmar los pasos para reproducir el problema o la necesidad.',
+              '- [ ] Comparar el comportamiento actual con el esperado.',
+              '- [ ] Verificar el cambio en el navegador si aplica.',
+              '',
+              '<!-- triage:done -->',
+            ].join('\n');
+
+            if (formattedBody.length > 65536) {
+              core.warning('El body formateado superaría el límite de GitHub; se conserva el body original.');
+              return;
+            }
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issue.number,
+              body: formattedBody,
+            });
